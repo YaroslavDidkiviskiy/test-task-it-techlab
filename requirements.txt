@@ -1,0 +1,6 @@
+dronekit==2.9.2
+fastcrc==0.3.5
+future==1.0.0
+lxml==6.0.2
+monotonic==1.6
+pymavlink==2.4.49
