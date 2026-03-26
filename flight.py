@@ -104,8 +104,10 @@ def arm_and_takeoff(vehicle, target_alt):
 def fly_to_point_b(vehicle):
     print("Політ до точки Б...")
 
-    # фікс yaw
+    fixed_yaw = vehicle.heading
     vehicle.channels.overrides[RC_YAW] = RC_MID
+
+    Kp_pos = 15
 
     while True:
         loc = vehicle.location.global_relative_frame
@@ -116,16 +118,17 @@ def fly_to_point_b(vehicle):
 
         print(f"Dist: {dist:.1f} м | Alt: {alt:.1f}")
 
-        if dist < 5:
+        if dist < 2:
             print("Досягли точки Б")
             break
 
-        # напрямок руху
-        bearing_rad = math.radians(bearing)
+        # ОЦЕ ГОЛОВНЕ — напрямок відносно носа дрона
+        relative_bearing = bearing - fixed_yaw
+        bearing_rad = math.radians(relative_bearing)
+
         pitch = math.cos(bearing_rad)
         roll  = math.sin(bearing_rad)
 
-        # плавне гальмування
         rc_offset = max(20, min(80, dist / 5))
 
         roll_val  = int(RC_MID + roll * rc_offset)
@@ -139,7 +142,6 @@ def fly_to_point_b(vehicle):
 
         time.sleep(0.2)
 
-    # стоп
     vehicle.channels.overrides[RC_ROLL]  = RC_MID
     vehicle.channels.overrides[RC_PITCH] = RC_MID
 
@@ -147,22 +149,40 @@ def fly_to_point_b(vehicle):
 def land(vehicle):
     print("Посадка...")
 
+    fixed_yaw = vehicle.heading
+
     while True:
-        alt = vehicle.location.global_relative_frame.alt
+        loc = vehicle.location.global_relative_frame
+        lat, lon, alt = loc.lat, loc.lon, loc.alt
 
-        vehicle.channels.overrides[RC_THROTTLE] = 1400
+        dist = get_distance(lat, lon, POINT_B[0], POINT_B[1])
+        bearing = get_bearing(lat, lon, POINT_B[0], POINT_B[1])
 
-        print(f"Landing alt: {alt:.1f}")
+        relative_bearing = bearing - fixed_yaw
+        bearing_rad = math.radians(relative_bearing)
+
+        pitch = math.cos(bearing_rad)
+        roll  = math.sin(bearing_rad)
+
+        rc_offset = max(10, min(60, dist / 3))
+
+        roll_val  = int(RC_MID + roll * rc_offset)
+        pitch_val = int(RC_MID - pitch * rc_offset)
+
+        vehicle.channels.overrides[RC_ROLL]     = roll_val
+        vehicle.channels.overrides[RC_PITCH]    = pitch_val
+        vehicle.channels.overrides[RC_THROTTLE] = 1430
+
+        print(f"Landing alt: {alt:.1f} | Dist: {dist:.1f}")
 
         if alt <= 0.3:
-            print("Сіли")
+            print("Сіли!")
             break
 
         time.sleep(0.3)
 
     vehicle.channels.overrides = {}
     vehicle.armed = False
-    print("Дрон роззброєно")
 
 
 def main():
