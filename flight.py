@@ -15,8 +15,14 @@ RC_YAW      = 4
 
 RC_MID = 1500
 
-# --- коефіцієнт висоти ---
+# --- коефіцієнти ---
 Kp_alt = 1.8
+
+
+# ------------------ UTILS ------------------
+
+def normalize_angle(angle):
+    return (angle + 180) % 360 - 180
 
 
 def connect_vehicle():
@@ -72,6 +78,8 @@ def hold_altitude(vehicle, target_alt):
     return int(throttle)
 
 
+# ------------------ TAKEOFF ------------------
+
 def arm_and_takeoff(vehicle, target_alt):
     print("Армінг...")
 
@@ -101,13 +109,13 @@ def arm_and_takeoff(vehicle, target_alt):
         time.sleep(0.2)
 
 
+# ------------------ FLIGHT ------------------
+
 def fly_to_point_b(vehicle):
     print("Політ до точки Б...")
 
     fixed_yaw = vehicle.heading
     vehicle.channels.overrides[RC_YAW] = RC_MID
-
-    Kp_pos = 15
 
     while True:
         loc = vehicle.location.global_relative_frame
@@ -122,14 +130,21 @@ def fly_to_point_b(vehicle):
             print("Досягли точки Б")
             break
 
-        # ОЦЕ ГОЛОВНЕ — напрямок відносно носа дрона
-        relative_bearing = bearing - fixed_yaw
+        # --- FIX ANGLE ---
+        relative_bearing = normalize_angle(bearing - fixed_yaw)
         bearing_rad = math.radians(relative_bearing)
 
+        # --- НАПРЯМОК ---
         pitch = math.cos(bearing_rad)
         roll  = math.sin(bearing_rad)
 
-        rc_offset = max(20, min(80, dist / 5))
+        # --- ШВИДКІСТЬ ---
+        if dist > 100:
+            rc_offset = 120
+        elif dist > 30:
+            rc_offset = 80
+        else:
+            rc_offset = 50
 
         roll_val  = int(RC_MID + roll * rc_offset)
         pitch_val = int(RC_MID - pitch * rc_offset)
@@ -140,11 +155,10 @@ def fly_to_point_b(vehicle):
         vehicle.channels.overrides[RC_PITCH]    = pitch_val
         vehicle.channels.overrides[RC_THROTTLE] = throttle
 
-        time.sleep(0.2)
+        time.sleep(0.1)   # швидше оновлення
 
-    vehicle.channels.overrides[RC_ROLL]  = RC_MID
-    vehicle.channels.overrides[RC_PITCH] = RC_MID
 
+# ------------------ LAND ------------------
 
 def land(vehicle):
     print("Посадка...")
@@ -158,19 +172,19 @@ def land(vehicle):
         dist = get_distance(lat, lon, POINT_B[0], POINT_B[1])
         bearing = get_bearing(lat, lon, POINT_B[0], POINT_B[1])
 
-        relative_bearing = bearing - fixed_yaw
+        relative_bearing = normalize_angle(bearing - fixed_yaw)
         bearing_rad = math.radians(relative_bearing)
 
         pitch = math.cos(bearing_rad)
         roll  = math.sin(bearing_rad)
 
-        rc_offset = max(10, min(60, dist / 3))
+        rc_offset = max(30, min(80, dist))
 
         roll_val  = int(RC_MID + roll * rc_offset)
         pitch_val = int(RC_MID - pitch * rc_offset)
 
-        vehicle.channels.overrides[RC_ROLL]     = roll_val
-        vehicle.channels.overrides[RC_PITCH]    = pitch_val
+        vehicle.channels.overrides[RC_ROLL]  = roll_val
+        vehicle.channels.overrides[RC_PITCH] = pitch_val
         vehicle.channels.overrides[RC_THROTTLE] = 1430
 
         print(f"Landing alt: {alt:.1f} | Dist: {dist:.1f}")
@@ -179,7 +193,7 @@ def land(vehicle):
             print("Сіли!")
             break
 
-        time.sleep(0.3)
+        time.sleep(0.2)
 
     vehicle.channels.overrides = {}
     vehicle.armed = False
@@ -188,7 +202,7 @@ def land(vehicle):
 def main():
     vehicle = connect_vehicle()
 
-    wait_for_gps(vehicle)  # 🔥 фікс твоєї проблеми
+    wait_for_gps(vehicle)
 
     vehicle.home_location = vehicle.location.global_frame
 
