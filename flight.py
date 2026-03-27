@@ -157,23 +157,28 @@ def main():
         forward =  north * math.cos(yaw_rad) + east * math.sin(yaw_rad)
         right   = -north * math.sin(yaw_rad) + east * math.cos(yaw_rad)
 
-        pitch_val = int(RC_MID - forward * 15)
-        roll_val  = int(RC_MID + right * 15)
+        if dist < 1.5:
+            pitch_val = RC_MID
+            roll_val  = RC_MID
+        else:
+            pitch_val = int(RC_MID - forward * 10)
+            roll_val  = int(RC_MID + right * 10)
 
         pitch_val = max(1420, min(1580, pitch_val))
         roll_val  = max(1420, min(1580, roll_val))
 
         # плавне зниження
         if alt > 50:
-            thr = 1420
-        elif alt > 20:
             thr = 1400
+        elif alt > 20:
+            thr = 1370
         elif alt > 10:
-            thr = 1380
-        elif alt > 5:
-            thr = 1360
-        else:
             thr = 1340
+        elif alt > 5:
+            thr = 1320
+        else:
+            thr = 1300
+
         print(f"Landing | Alt: {alt:.1f} | Dist: {dist:.2f}")
 
         vehicle.channels.overrides[RC_ROLL]     = roll_val
